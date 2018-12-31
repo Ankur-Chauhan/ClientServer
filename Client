@@ -1,0 +1,132 @@
+/* 
+ * File:   tcpClient.cpp
+ * Author: AnkurChauhan
+ *
+ * Created on April 19, 2017, 7:24 PM
+ */
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <limits.h>
+#include <chrono>
+#include "../commonobjects/ConfigReader.h"
+
+#define MAX_SEND_MSG_LENGTH         1024
+#define MAX_RECEIVE_MSG_LENGTH      1024
+#define RECEIVED_BUFFER_LEN         1024
+
+
+const int32_t DEALER_ID_LEN         = 15;
+const int32_t SERIES_ID_LEN         = 2;
+const int32_t TRADING_SYMBOL_NAME   = 25;
+const int32_t SCRIP_SYMBOL_LEN      = 10;
+const int32_t MAX_SEND_BUFFER_LEN   = 256;
+const int32_t MAGIC_KEY_LEN         = 64;  
+
+
+void error(const char *msg)
+{
+    perror(msg);
+    exit(0);
+}
+
+struct tagHeader
+{
+  int16_t                 nMsgCode; 
+  int64_t                 nTimeStamp;
+  int32_t                 nErrorCode;                     
+};
+
+
+struct tagLoginRequest
+{
+  tagHeader               stHeader;
+  char                    cDealerId[DEALER_ID_LEN + 1];
+};
+
+
+using namespace std;
+
+/*
+ * 
+ */
+
+
+int main(int argc, char** argv)
+{
+    ConfigReader lcConfigReader(argv[1]);
+    const std::string lzServerIPAddr = lcConfigReader.getProperty("SERVER_IP_ADDRESS");
+    const int32_t lnServerPort = atoi(lcConfigReader.getProperty("SERVER_PORT").c_str());
+    const int32_t lnCoreId = atoi(lcConfigReader.getProperty("CORE_ID").c_str());
+    int  n1,n2;
+    //int i=10;
+
+    struct sockaddr_in serv_addr;
+    struct hostent *server; 
+    tagLoginRequest *lpsttagLoginRequest = new tagLoginRequest();
+    strcpy(lpsttagLoginRequest->cDealerId, "AnkurChauhan");
+    lpsttagLoginRequest->stHeader.nMsgCode = 101;
+   
+    int nFd = socket(AF_INET, SOCK_STREAM, 0);
+    std::cout<< "tagConnectionStatus: "<< nFd<< std::endl;
+    if (nFd < 0) 
+
+        error("ERROR opening socket");
+    
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr=inet_addr(lzServerIPAddr.c_str());
+    serv_addr.sin_port = htons(lnServerPort);
+    memset(&(serv_addr.sin_zero),'\0',8);
+    
+    char lcData[1024] = {0};
+    /*
+    int lnLen = 80;
+    int lnTotalLen = 80 + sizeof(int);    
+    memcpy(lcData, &lnLen, sizeof(int));
+      
+    char lcRecvData[1024] = {0};
+    int lnRecvTotalLen = 80 + sizeof(int);    
+    */
+    
+    if (connect(nFd, (struct sockaddr *)&serv_addr,sizeof(serv_addr)) < 0) 
+        error("ERROR connecting");
+
+    //for(int lnLoop = 0; lnLoop < 100; ++lnLoop)
+    std::chrono::steady_clock::time_point begin; 
+    std::chrono::steady_clock::time_point end; 
+    int64_t lnzTimeStamp[100];
+    int i = 0;
+    while(i < 100)
+    {
+      begin = std::chrono::steady_clock::now();
+      int lnRetBytes = send(nFd, lpsttagLoginRequest, sizeof(tagLoginRequest),0);
+      end = std::chrono::steady_clock::now();
+      lnzTimeStamp[i++] = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin).count();
+      //std::cout<< i - 1<< "|"<< lnzTimeStamp[i - 1]<< std::endl;
+      //cout<< "Sent Bytes:"<< lnRetBytes <<std::endl;
+    
+      //int lnRecvBytes = recv(nFd, lcData, 1024,0);
+      //cout<< "Recv Bytes:"<< lnRecvBytes <<std::endl;
+      
+      //sleep(1);
+      /*
+      int lnRecBytes = recv(lpstonnectionStatus->nFd, lcRecvData, 1024,0);
+      cout<< lnRecBytes <<std::endl;
+       */
+    }
+    int64_t lnTimeElapsed = 0;
+    for(int i = 0; i < 100; i++)
+    {
+      lnTimeElapsed += int64_t(lnzTimeStamp[i]); 
+    }
+    std::cout<< "Avg Time Elapsed(in nano):"<< lnTimeElapsed/100;
+  return 0;
+}
+
